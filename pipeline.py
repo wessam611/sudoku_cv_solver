@@ -45,3 +45,15 @@ def rotate(img):
     return img
 
 
+def boxes_divide(img):
+    boxes = np.zeros((81, *BOX_SIZE))
+    for i in prange(81):
+        rows = IMAGE_SIZE[0]//9; cols = IMAGE_SIZE[1]//9
+        r = i//9
+        c = i%9
+        margin = 2
+        box = img[max(0, r*rows - margin): min(IMAGE_SIZE[0], (r+1)*rows+ margin), \
+            max(0, c*cols-margin): min(IMAGE_SIZE[1], (c+1)*cols+margin)]
+        box = cv2.resize(box, tuple(BOX_SIZE))
+        boxes[i] = box
+    return boxes
