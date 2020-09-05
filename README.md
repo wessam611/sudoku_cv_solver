@@ -16,6 +16,8 @@ This solution can't handle realworld sudoku images (from newspapers) but it woul
 * extracting digits by dividing the grid. (with extra 4 pixels as border to make sure the cell fits the number)
 * refining the digits by finding contours and perspective transformation.
 
+(check the review jupyternotebook)
+
 ![Pipeline](https://i.ibb.co/gvzvFpJ/final-pipeline.png)
 
 ## Final Notes
