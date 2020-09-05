@@ -15,14 +15,17 @@ class ImagesLoader:
         self.pipeline = []
 
     def __iter__(self):
+        pool = Pool()
         for i in range(self.iters):
-            pool = Pool()
-            imgs = self.images[i*self.batch_size: min(len(self.images), (i+1)*self.batch_size)]
-            imgs = pool.map(cv2.imread, imgs)
+            files = self.images[i*self.batch_size: min(len(self.images), (i+1)*self.batch_size)]
+            imgs = pool.map(cv2.imread, files)
+            files = [int(file.split('/')[-1].split('.')[0]) for file in files]
             for fn in self.pipeline:
                 imgs = pool.map(fn, imgs)
             imgs = np.stack(imgs)
-            yield imgs
+            yield imgs, files
+            del imgs
+            del files
 
     def map(self, fn):
         self.pipeline.append(fn)
