@@ -47,6 +47,7 @@ def rotate(img):
     img = cv2.warpPerspective(img,M,tuple(IMAGE_SIZE))
     img = cv2.adaptiveThreshold(img,255,cv2.ADAPTIVE_THRESH_GAUSSIAN_C,\
             cv2.THRESH_BINARY,11,2)
+    return img
 
 def remove_grid_lines(img):
     horizontal = 255 - np.copy(img)
