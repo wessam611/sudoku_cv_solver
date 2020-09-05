@@ -3,3 +3,4 @@ saved_model/
 train_digits/
 submission.csv
 test.py
+.ipynb_checkpoints/
