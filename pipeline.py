@@ -39,8 +39,8 @@ def rotate(img):
         if area > 300:
             epsilon = 0.1*cv2.arcLength(contour,True)
             approx = cv2.approxPolyDP(contour,epsilon,True)
-
-    dst = [[0, 0], [0, 255], [255, 0], [255, 255]]
+    b = 5 # border
+    dst = [[b, b], [b, 255-b], [255-b, b], [255-b, 255-b]]
     src, dst = _sort_src_from_dst(approx, dst)
     
     M = cv2.getPerspectiveTransform(src, dst)
@@ -48,18 +48,46 @@ def rotate(img):
     img = cv2.adaptiveThreshold(img,255,cv2.ADAPTIVE_THRESH_GAUSSIAN_C,\
             cv2.THRESH_BINARY,11,2)
 
+def remove_grid_lines(img):
+    horizontal = 255 - np.copy(img)
+    vertical = 255 - np.copy(img)
+    cols = horizontal.shape[1]
+    horizontal_size = cols // 15
+    vertical_size = cols // 15
+    # Create structure element for extracting horizontal lines through morphology operations
+    horizontalStructure = cv2.getStructuringElement(cv2.MORPH_RECT, (horizontal_size, 1))
+    horizontal = cv2.erode(horizontal, horizontalStructure)
+    horizontal = cv2.dilate(horizontal, horizontalStructure)
+
+    verticalStructure = cv2.getStructuringElement(cv2.MORPH_RECT, (1, vertical_size))
+    # Apply morphology operations
+    vertical = cv2.erode(vertical, verticalStructure)
+    vertical = cv2.dilate(vertical, verticalStructure)
+
+    vertical = np.asarray(vertical>=127, dtype='bool')
+    horizontal = np.asarray(horizontal>=127, dtype='bool')
+
+    grid = np.asarray(vertical | horizontal, dtype='uint8')*255
+
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(5, 5))
+    grid = 255-cv2.dilate(grid, kernel)
+
+    grid = np.asarray(grid>=127, dtype='bool')
+    img = np.asarray(img<=127, dtype='bool')
+    img = np.asarray(img & grid, dtype='uint8')*255
     return img
 
 
 def boxes_divide(img):
     boxes = np.zeros((81, *BOX_SIZE), dtype='uint8')
+    b = 0 # border
     for i in prange(81):
-        rows = IMAGE_SIZE[0]//9; cols = IMAGE_SIZE[1]//9
+        rows = (IMAGE_SIZE[0]-b)//9; cols = (IMAGE_SIZE[1]-b)//9
         r = i//9
         c = i%9
-        margin = 2
-        box = img[max(0, r*rows - margin): min(IMAGE_SIZE[0], (r+1)*rows+ margin), \
-            max(0, c*cols-margin): min(IMAGE_SIZE[1], (c+1)*cols+margin)]
+        margin = 4
+        box = img[b+max(0, r*rows - margin): b+min(IMAGE_SIZE[0], (r+1)*rows+ margin), \
+            b+max(0, c*cols-margin): b+min(IMAGE_SIZE[1], (c+1)*cols+margin)]
         box = cv2.resize(box, tuple(BOX_SIZE))
         boxes[i] = box
     return boxes
@@ -67,22 +95,37 @@ def boxes_divide(img):
 def boxes_refine(boxes):
     for i in prange(81):
         box = boxes[i]
+        br = 10 # border
+        th = 5
+        if np.sum(box[br:-br, br:-br]) <= 255*th:
+            box = np.zeros(BOX_SIZE, dtype='uint8')
+            boxes[i] = box
+            continue
         contours, hierarchy = cv2.findContours(box, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
         max_area = 0
+        rect = None
         for contour in contours:
             area = cv2.contourArea(contour)
             if area > max_area:
                 max_area = area
-                rect = cv2.minAreaRect(contour)
-                rect = cv2.boxPoints(rect)
-
-        dst = [[0, 0], [0, 28], [28, 0], [28, 28]]
+                x,y,w,h = cv2.boundingRect(contour)
+                if w >= h:
+                    h = w
+                    y -= w//2
+                else:
+                    w = h
+                    x -= h//2
+                rect = np.asarray([[x, y], [x+w, y], [x, y+h], [x+h, y+h]])
+        if rect is None:
+            continue
+        sh = -8
+        dst = [[0-sh, 0-sh], [0-sh, 28+sh], [28+sh, 0-sh], [28+sh, 28+sh]]
         src, dst = _sort_src_from_dst(rect, dst)
 
         M = cv2.getPerspectiveTransform(src, dst)
         box = cv2.warpPerspective(box, M, tuple(BOX_SIZE))
-        box = cv2.adaptiveThreshold(box, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,\
-                cv2.THRESH_BINARY, 11, 2)
+        box = np.asarray(box>=127, dtype='uint8')*255
+        
 
         boxes[i] = box
     return boxes
